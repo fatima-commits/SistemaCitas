@@ -1,87 +1,93 @@
-"""CuentaMesa — servidor web. Ejecutar:  python app.py  y abrir http://localhost:5000"""
-import os
+"""CuentaMesa - aplicación web (Flask).
+
+Ejecutar:  pip install flask   y luego   python app.py
+Abrir:     http://localhost:5000
+"""
 from datetime import timedelta
 from functools import wraps
 
-from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from jinja2 import DictLoader
 
-import datos
-from modelos import (Cuenta, ErrorNegocio, EstadoCuenta, EstadoDetalleOrden, Orden,
-                     PagoEfectivo, PagoTarjeta, RolUsuario)
+from enums import EstadoCuenta, EstadoDetalleOrden
+from errores import ReglaNegocioError
+from pago import PagoEfectivo, PagoTarjeta
 from plantillas import PLANTILLAS
+from repositorio import RepositorioMemoria
 from terminal import TerminalSimulada
 
-MESERO, CAJERO = RolUsuario.MESERO, RolUsuario.CAJERO
-
+# REFACTOR: todas las rutas están en este archivo. Separarlas en Blueprints
+# (auth.py, mesero.py, caja.py, menu_admin.py).
 app = Flask(__name__)
-app.secret_key = os.environ.get("CLAVE_SECRETA", "cambia-esta-clave")
-app.permanent_session_lifetime = timedelta(minutes=15)  # RNF-02: cierre tras 15 min sin actividad
-app.jinja_env.loader = DictLoader(PLANTILLAS)
+# REFACTOR: clave secreta escrita en el código. Leerla de una variable de entorno.
+app.secret_key = "cambia-esta-clave"
+app.permanent_session_lifetime = timedelta(minutes=15)  # RNF-02: 15 min sin actividad
+app.jinja_loader = DictLoader(PLANTILLAS)
+
+# REFACTOR: objetos globales. Usar inyección de dependencias / app factory
+# (create_app) para poder cambiar la terminal real por la simulada en pruebas.
+repo = RepositorioMemoria()
 terminal = TerminalSimulada()
 
 
-# ---------- Utilidades ----------
-@app.before_request
-def cargar_usuario():
-    g.usuario = datos.usuarios.get(session.get("usuario"))
+# ---------------------------------------------------------------- utilidades
+@app.template_filter("dinero")
+def formato_dinero(valor):
+    return f"${valor:,.2f}"
+
+
+def usuario_actual():
+    id_usuario = session.get("id_usuario")
+    return repo.buscar_usuario(id_usuario) if id_usuario else None
 
 
 @app.context_processor
 def variables_globales():
-    return {"usuario": g.get("usuario")}
+    return {"usuario": usuario_actual(), "EstadoCuenta": EstadoCuenta,
+            "EstadoDetalleOrden": EstadoDetalleOrden}
 
 
-@app.errorhandler(ErrorNegocio)
-def error_negocio(e):
-    flash(str(e))
+def login_requerido(vista):
+    @wraps(vista)
+    def envoltura(*args, **kwargs):
+        if usuario_actual() is None:
+            flash("Inicia sesión para continuar.", "error")
+            return redirect(url_for("login"))
+        return vista(*args, **kwargs)
+    return envoltura
+
+
+# REFACTOR: falta un decorador @rol_requerido(RolUsuario.CAJERO). Hoy cada
+# ruta repite "if not usuario.es_cajero(): abort(403)".
+
+
+@app.errorhandler(ReglaNegocioError)
+def manejar_regla_negocio(error):
+    """Cualquier RN violada se muestra como mensaje y regresa a la página anterior."""
+    flash(str(error), "error")
     return redirect(request.referrer or url_for("inicio"))
 
 
-def requiere(rol=None):
-    """Exige sesión iniciada y, si se indica, un rol."""
-    def decorador(funcion):
-        @wraps(funcion)
-        def envoltura(*args, **kwargs):
-            if not g.usuario:
-                return redirect(url_for("login"))
-            if rol and not g.usuario.validarRol(rol):
-                abort(403)
-            return funcion(*args, **kwargs)
-        return envoltura
-    return decorador
+# REFACTOR: leer números del formulario se repite en muchas rutas con el
+# mismo try/except. Crear una función leer_entero(nombre_campo) o usar WTForms.
+def leer_entero(campo):
+    try:
+        return int(request.form.get(campo, ""))
+    except ValueError:
+        raise ReglaNegocioError(f"El campo '{campo}' debe ser un número entero.")
 
 
-def obtener_cuenta(folio):
-    cuenta = datos.cuentas.get(folio) or abort(404)
-    if g.usuario.validarRol(MESERO) and cuenta.mesero is not g.usuario:
-        abort(403)  # el mesero solo opera sus cuentas
-    return cuenta
-
-
-def buscar_detalle(cuenta, id):
-    for orden in cuenta.ordenes:
-        for detalle in orden.detalles:
-            if detalle.idDetalle == id:
-                return orden, detalle
-    abort(404)
-
-
-def volver(cuenta):
-    return redirect(url_for("ver_cuenta", folio=cuenta.folio))
-
-
-# ---------- Sesión (RF-01) ----------
+# ---------------------------------------------------------------- sesión (RF-01)
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        u = datos.usuarios.get(request.form.get("usuario", ""))
-        if u and u.autenticar(request.form.get("contrasena")):
+        usuario = repo.buscar_usuario_por_nombre(request.form.get("nombre_usuario", ""))
+        if usuario and usuario.autenticar(request.form.get("contrasena", "")):
             session.clear()
             session.permanent = True
-            session["usuario"] = u.nombreUsuario
+            session["id_usuario"] = usuario.id_usuario
             return redirect(url_for("inicio"))
-        flash("Usuario o contraseña incorrectos.")
+        flash("Usuario o contraseña incorrectos.", "error")  # RN-01
     return render_template("login.html")
 
 
@@ -92,157 +98,204 @@ def logout():
 
 
 @app.route("/")
-@requiere()
+@login_requerido
 def inicio():
-    return redirect(url_for("mesas" if g.usuario.validarRol(MESERO) else "caja"))
+    return redirect(url_for("caja" if usuario_actual().es_cajero() else "mesas"))
 
 
-# ---------- Menú (RF-02, RF-15) ----------
-@app.route("/menu")
-@requiere()
-def menu():
-    return render_template("menu.html", categorias=datos.categorias)
-
-
-@app.post("/menu/productos", defaults={"id": None})
-@app.post("/menu/productos/<int:id>")
-@requiere(CAJERO)
-def guardar_producto(id):
-    f = request.form
-    if id is None:
-        cat = next((c for c in datos.categorias if c.idCategoria == f.get("categoria", type=int)), None) or abort(404)
-        datos.agregar_producto(f.get("nombre"), f.get("precio"), cat)
-    else:
-        p = datos.productos.get(id) or abort(404)
-        p.actualizarDatos(f.get("nombre"), f.get("precio"))
-        p.marcarDisponible("disponible" in f)
-    flash("Producto guardado.")
-    return redirect(url_for("menu"))
-
-
-# ---------- Mesero (RF-03 a RF-10) ----------
+# ---------------------------------------------------------------- mesero
 @app.route("/mesas")
-@requiere(MESERO)
+@login_requerido
 def mesas():
-    filas = [(m, datos.cuenta_activa(m)) for m in datos.mesas.values()]
+    usuario = usuario_actual()
+    if not usuario.es_mesero():  # REFACTOR: chequeo de rol repetido
+        abort(403)
+    filas = [(m, repo.cuenta_activa_de_mesa(m.numero)) for m in repo.listar_mesas()]
     return render_template("mesas.html", filas=filas)
 
 
-@app.post("/cuentas")
-@requiere(MESERO)
-def abrir_cuenta():
-    mesa = datos.mesas.get(request.form.get("mesa", type=int)) or abort(404)
-    cuenta = Cuenta(len(datos.cuentas) + 1, mesa, g.usuario, request.form.get("comensales"))
-    cuenta.agregarOrden(Orden(1), g.usuario)  # primera orden lista para capturar
-    datos.cuentas[cuenta.folio] = cuenta
-    return volver(cuenta)
+@app.route("/mesas/<int:numero>/abrir", methods=["POST"])
+@login_requerido
+def abrir_cuenta(numero):
+    """RF-03, RF-04."""
+    cuenta = repo.abrir_cuenta(numero, usuario_actual(), leer_entero("comensales"))
+    flash(f"Cuenta {cuenta.folio} abierta para la mesa {numero}.", "ok")
+    return redirect(url_for("ver_cuenta", folio=cuenta.folio))
 
 
 @app.route("/cuentas/<int:folio>")
-@requiere()
+@login_requerido
 def ver_cuenta(folio):
-    return render_template("cuenta.html", cuenta=obtener_cuenta(folio),
-                           categorias=datos.categorias, estados=list(EstadoDetalleOrden))
+    usuario = usuario_actual()
+    cuenta = repo.buscar_cuenta(folio)
+    # El mesero solo ve las cuentas que él abrió (Sección 2, actor Mesero).
+    # REFACTOR: esta misma comprobación ya existe dentro de Cuenta (_validar_duenio).
+    if not usuario.es_mesero() or cuenta.mesero.id_usuario != usuario.id_usuario:
+        abort(403)
+    return render_template("cuenta_mesero.html", cuenta=cuenta, categorias=repo.listar_categorias())
 
 
-@app.post("/cuentas/<int:folio>/ordenes")
-@requiere(MESERO)
+@app.route("/cuentas/<int:folio>/comensales", methods=["POST"])
+@login_requerido
+def cambiar_comensales(folio):
+    """RF-04."""
+    repo.buscar_cuenta(folio).registrar_comensales(leer_entero("comensales"), usuario_actual())
+    return redirect(url_for("ver_cuenta", folio=folio))
+
+
+@app.route("/cuentas/<int:folio>/ordenes", methods=["POST"])
+@login_requerido
 def nueva_orden(folio):
-    cuenta = obtener_cuenta(folio)
-    cuenta.agregarOrden(Orden(len(cuenta.ordenes) + 1), g.usuario)
-    return volver(cuenta)
+    """RF-05."""
+    repo.buscar_cuenta(folio).agregar_orden(usuario_actual())
+    return redirect(url_for("ver_cuenta", folio=folio))
 
 
-@app.post("/cuentas/<int:folio>/ordenes/<int:id>")
-@requiere(MESERO)
-def agregar_producto(folio, id):
-    cuenta = obtener_cuenta(folio)
-    cuenta.validarMesero(g.usuario)
-    orden = next((o for o in cuenta.ordenes if o.idOrden == id), None) or abort(404)
-    producto = datos.productos.get(request.form.get("producto", type=int)) or abort(404)
-    orden.agregarDetalle(producto, request.form.get("cantidad"), request.form.get("nota"))
-    return volver(cuenta)
+@app.route("/cuentas/<int:folio>/ordenes/<int:numero>/productos", methods=["POST"])
+@login_requerido
+def agregar_producto(folio, numero):
+    """RF-06."""
+    cuenta = repo.buscar_cuenta(folio)
+    producto = repo.buscar_producto(leer_entero("id_producto"))
+    cuenta.agregar_producto(numero, producto, leer_entero("cantidad"),
+                            request.form.get("nota", ""), usuario_actual())
+    return redirect(url_for("ver_cuenta", folio=folio))
 
 
-@app.post("/cuentas/<int:folio>/detalles/<int:id>/eliminar")
-@requiere(MESERO)
-def eliminar_detalle(folio, id):
-    cuenta = obtener_cuenta(folio)
-    cuenta.validarMesero(g.usuario)
-    orden, detalle = buscar_detalle(cuenta, id)
-    orden.eliminarDetalle(detalle)
-    return volver(cuenta)
+@app.route("/cuentas/<int:folio>/productos/<int:id_detalle>/eliminar", methods=["POST"])
+@login_requerido
+def eliminar_producto(folio, id_detalle):
+    """RF-07."""
+    repo.buscar_cuenta(folio).eliminar_producto(id_detalle, usuario_actual())
+    return redirect(url_for("ver_cuenta", folio=folio))
 
 
-@app.post("/cuentas/<int:folio>/detalles/<int:id>/estado")
-@requiere(MESERO)
-def estado_detalle(folio, id):
-    cuenta = obtener_cuenta(folio)
-    cuenta.validarMesero(g.usuario, (EstadoCuenta.ABIERTA, EstadoCuenta.POR_COBRAR))
-    _, detalle = buscar_detalle(cuenta, id)
-    detalle.actualizarEstado(request.form.get("estado", ""))
-    return volver(cuenta)
+@app.route("/cuentas/<int:folio>/productos/<int:id_detalle>/estado", methods=["POST"])
+@login_requerido
+def cambiar_estado_producto(folio, id_detalle):
+    """RF-08."""
+    repo.buscar_cuenta(folio).actualizar_estado_producto(
+        id_detalle, request.form.get("estado", ""), usuario_actual())
+    return redirect(url_for("ver_cuenta", folio=folio))
 
 
-@app.post("/cuentas/<int:folio>/solicitar")
-@requiere(MESERO)
-def solicitar_cobro(folio):
-    cuenta = obtener_cuenta(folio)
-    cuenta.solicitarCuenta(g.usuario)
-    flash("Cuenta enviada a caja.")
-    return volver(cuenta)
+@app.route("/cuentas/<int:folio>/solicitar", methods=["POST"])
+@login_requerido
+def solicitar_cuenta(folio):
+    """RF-10."""
+    repo.buscar_cuenta(folio).solicitar_cuenta(usuario_actual())
+    flash(f"Cuenta {folio} enviada a caja.", "ok")
+    return redirect(url_for("mesas"))
 
 
-# ---------- Cajero (RF-11 a RF-14) ----------
+# ---------------------------------------------------------------- cajero
 @app.route("/caja")
-@requiere(CAJERO)
+@login_requerido
 def caja():
-    orden_estado = list(EstadoCuenta).index
-    cuentas = sorted(datos.cuentas.values(), key=lambda c: (orden_estado(c.estado), -c.folio))
-    return render_template("caja.html", cuentas=cuentas)
+    if not usuario_actual().es_cajero():  # REFACTOR: chequeo de rol repetido
+        abort(403)
+    return render_template("caja.html", activas=repo.cuentas_activas(), cerradas=repo.cuentas_cerradas())
 
 
-@app.post("/cuentas/<int:folio>/propina")
-@requiere(CAJERO)
-def propina(folio):
-    cuenta = obtener_cuenta(folio)
-    cuenta.aplicarPropina(request.form.get("valor"), request.form.get("tipo") == "porcentaje", g.usuario)
-    return volver(cuenta)
+@app.route("/caja/cuentas/<int:folio>")
+@login_requerido
+def caja_cuenta(folio):
+    if not usuario_actual().es_cajero():  # REFACTOR: chequeo de rol repetido
+        abort(403)
+    return render_template("cuenta_caja.html", cuenta=repo.buscar_cuenta(folio))
 
 
-@app.post("/cuentas/<int:folio>/pagar")
-@requiere(CAJERO)
-def pagar(folio):
-    cuenta = obtener_cuenta(folio)
-    if request.form.get("metodo") == "TARJETA":
-        if not PagoTarjeta(g.usuario, terminal).procesarCobro(cuenta):
-            flash("Tarjeta rechazada o sin respuesta en 30 s. La cuenta sigue por cobrar: "
-                  "reintente o cobre en efectivo.")
-            return volver(cuenta)
-    else:
-        pago = PagoEfectivo(g.usuario, request.form.get("recibido"))
-        pago.procesarCobro(cuenta)
-        flash(f"Pago registrado. Cambio: ${pago.cambio}")
-    return redirect(url_for("ticket", folio=folio))
+@app.route("/caja/cuentas/<int:folio>/propina", methods=["POST"])
+@login_requerido
+def aplicar_propina(folio):
+    """RF-11."""
+    es_porcentaje = request.form.get("tipo") == "porcentaje"
+    repo.buscar_cuenta(folio).aplicar_propina(request.form.get("valor", ""), es_porcentaje, usuario_actual())
+    return redirect(url_for("caja_cuenta", folio=folio))
 
 
-@app.post("/cuentas/<int:folio>/cancelar")
-@requiere(CAJERO)
-def cancelar(folio):
-    cuenta = obtener_cuenta(folio)
-    cuenta.cancelar(request.form.get("motivo"), g.usuario)
-    flash(f"Cuenta {folio} cancelada; la mesa {cuenta.mesa.numero} quedó libre.")
+# REFACTOR: las dos rutas de pago son casi iguales. Se podría tener una sola
+# ruta /pago con una "fábrica" que cree PagoEfectivo o PagoTarjeta según el método.
+@app.route("/caja/cuentas/<int:folio>/pago/efectivo", methods=["POST"])
+@login_requerido
+def pagar_efectivo(folio):
+    """RF-12 (efectivo)."""
+    cuenta = repo.buscar_cuenta(folio)
+    pago = PagoEfectivo(usuario_actual(), request.form.get("monto_recibido", ""))
+    if pago.procesar_cobro(cuenta):
+        flash(f"Pago registrado. Cambio: {formato_dinero(pago.cambio)}", "ok")
+        return redirect(url_for("ticket", folio=folio))
+    flash("El efectivo recibido no cubre el total. La cuenta sigue por cobrar.", "error")
+    return redirect(url_for("caja_cuenta", folio=folio))
+
+
+@app.route("/caja/cuentas/<int:folio>/pago/tarjeta", methods=["POST"])
+@login_requerido
+def pagar_tarjeta(folio):
+    """RF-12 (tarjeta), RN-12."""
+    cuenta = repo.buscar_cuenta(folio)
+    pago = PagoTarjeta(usuario_actual(), terminal)
+    if pago.procesar_cobro(cuenta):
+        flash("Pago con tarjeta aprobado.", "ok")
+        return redirect(url_for("ticket", folio=folio))
+    flash("La terminal rechazó el cobro o no respondió en 30 s. "
+          "Puedes reintentar o cobrar en efectivo.", "error")
+    return redirect(url_for("caja_cuenta", folio=folio))
+
+
+@app.route("/caja/cuentas/<int:folio>/cancelar", methods=["POST"])
+@login_requerido
+def cancelar_cuenta(folio):
+    """RF-13."""
+    repo.buscar_cuenta(folio).cancelar(request.form.get("motivo", ""), usuario_actual())
+    flash(f"Cuenta {folio} cancelada; la mesa quedó libre.", "ok")
     return redirect(url_for("caja"))
 
 
-@app.route("/cuentas/<int:folio>/ticket")
-@requiere(CAJERO)
+@app.route("/caja/cuentas/<int:folio>/ticket")
+@login_requerido
 def ticket(folio):
-    cuenta = obtener_cuenta(folio)
-    if not cuenta.pago:
-        raise ErrorNegocio("La cuenta no tiene un pago registrado (RN-14).")
-    return render_template("ticket.html", texto=cuenta.pago.generarTicket(cuenta), folio=folio)
+    """RF-14, RN-14."""
+    if not usuario_actual().es_cajero():  # REFACTOR: chequeo de rol repetido
+        abort(403)
+    cuenta = repo.buscar_cuenta(folio)
+    if cuenta.pago is None:
+        raise ReglaNegocioError("La cuenta no tiene un pago registrado (RN-14).")
+    return render_template("ticket.html", cuenta=cuenta, texto=cuenta.pago.generar_ticket(cuenta))
+
+
+# ---------------------------------------------------------------- menú (RF-15)
+@app.route("/menu")
+@login_requerido
+def menu_admin():
+    if not usuario_actual().es_cajero():  # REFACTOR: chequeo de rol repetido
+        abort(403)
+    return render_template("menu_admin.html", categorias=repo.listar_categorias())
+
+
+@app.route("/menu/productos", methods=["POST"])
+@login_requerido
+def crear_producto():
+    if not usuario_actual().es_cajero():  # RN-15  REFACTOR: chequeo de rol repetido
+        abort(403)
+    repo.crear_producto(request.form.get("nombre"), request.form.get("precio"),
+                        leer_entero("id_categoria"), "disponible" in request.form)
+    flash("Producto creado.", "ok")
+    return redirect(url_for("menu_admin"))
+
+
+@app.route("/menu/productos/<int:id_producto>", methods=["POST"])
+@login_requerido
+def actualizar_producto(id_producto):
+    if not usuario_actual().es_cajero():  # RN-15  REFACTOR: chequeo de rol repetido
+        abort(403)
+    producto = repo.buscar_producto(id_producto)
+    producto.actualizar_datos(request.form.get("nombre"), request.form.get("precio"))
+    producto.marcar_disponible("disponible" in request.form)
+    flash("Producto actualizado.", "ok")
+    return redirect(url_for("menu_admin"))
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)  # 0.0.0.0 para que las tabletas de la red local entren
+    # REFACTOR: debug=True no debe usarse en producción.
+    app.run(debug=True)
