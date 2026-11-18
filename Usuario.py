@@ -3,7 +3,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from enums import RolUsuario
 
-
 class Usuario:
     def __init__(self, id_usuario, nombre, nombre_usuario, contrasena, rol):
         self._id_usuario = id_usuario
