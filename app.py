@@ -9,12 +9,12 @@ from functools import wraps
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from jinja2 import DictLoader
 
-from enums import EstadoCuenta, EstadoDetalleOrden
-from errores import ReglaNegocioError
-from pago import PagoEfectivo, PagoTarjeta
-from plantillas import PLANTILLAS
-from repositorio import RepositorioMemoria
-from terminal import TerminalSimulada
+from Enums import EstadoCuenta, EstadoDetalleOrden
+from Errores import ReglaNegocioError
+from Pago import PagoEfectivo, PagoTarjeta
+from Plantillas import PLANTILLAS
+from Repositorio import RepositorioMemoria
+from Terminal import TerminalSimulada
 
 # REFACTOR: todas las rutas están en este archivo. Separarlas en Blueprints
 # (auth.py, mesero.py, caja.py, menu_admin.py).

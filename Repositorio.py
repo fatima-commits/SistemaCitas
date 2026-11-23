@@ -4,12 +4,12 @@ Usuarios de prueba (contraseña 1234): mesero1, mesero2, cajero1.
 """
 import itertools
 
-from cuenta import Cuenta
-from enums import EstadoCuenta, RolUsuario
-from errores import ReglaNegocioError
-from mesa import Mesa
-from menu import Categoria, Producto
-from usuario import Usuario
+from Cuenta import Cuenta
+from Enums import EstadoCuenta, RolUsuario
+from Errores import ReglaNegocioError
+from Mesa import Mesa
+from Menu import Categoria, Producto
+from Usuario import Usuario
 
 
 # REFACTOR: todo vive en memoria; al reiniciar el servidor se pierde todo.

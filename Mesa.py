@@ -1,6 +1,6 @@
 """Clase Mesa (Tarjeta CRC 2)."""
-from enums import EstadoMesa
-from errores import ReglaNegocioError
+from Enums import EstadoMesa
+from Errores import ReglaNegocioError
 
 
 class Mesa:

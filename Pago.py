@@ -7,8 +7,8 @@ from concurrent.futures import TimeoutError as TiempoAgotado
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from enums import EstadoCuenta, MetodoPago, RolUsuario
-from errores import ReglaNegocioError
+from Enums import EstadoCuenta, MetodoPago, RolUsuario
+from Errores import ReglaNegocioError
 
 
 # REFACTOR: función DUPLICADA de cuenta.py. Unificar en un solo módulo.
