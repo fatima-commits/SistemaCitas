@@ -5,8 +5,7 @@ from Enums import EstadoCuenta, EstadoMesa
 from Errores import ReglaNegocioError
 from Pago import PagoEfectivo, PagoTarjeta
 from Repositorio import RepositorioMemoria
-from Terminal import ServicioTerminalPago
-
+from Terminal import ResultadoCargo, ServicioTerminalPago
 
 class TerminalPrueba(ServicioTerminalPago):
     def __init__(self, aprobar=True):
@@ -14,10 +13,7 @@ class TerminalPrueba(ServicioTerminalPago):
         self._ref = "REF-TEST01" if aprobar else ""
 
     def enviar_cargo(self, monto):
-        return self._aprobar
-
-    def obtener_referencia(self):
-        return self._ref
+        return ResultadoCargo(aprobado=self._aprobar, referencia=self._ref)
 
 
 def test_abrir_cuenta():
