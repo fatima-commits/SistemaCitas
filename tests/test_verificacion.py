@@ -6,6 +6,7 @@ from Errores import ReglaNegocioError
 from Pago import PagoEfectivo, PagoTarjeta
 from Repositorio import RepositorioMemoria
 from Terminal import ResultadoCargo, ServicioTerminalPago
+from Ticket import GeneradorTicket
 
 class TerminalPrueba(ServicioTerminalPago):
     def __init__(self, aprobar=True):
@@ -172,7 +173,7 @@ def test_generar_ticket():
     cuenta.solicitar_cuenta(mesero)
     pago = PagoEfectivo(cajero, "100.00")
     pago.procesar_cobro(cuenta)
-    ticket = pago.generar_ticket(cuenta)
+    ticket = GeneradorTicket().generar(cuenta.generar_resumen(), [pago])
     assert "Folio cuenta: 1" in ticket
     assert "Guacamole" in ticket
 
@@ -184,7 +185,7 @@ def test_generar_ticket_sin_pago():
     cuenta = repo.abrir_cuenta(1, mesero, 2)
     pago = PagoEfectivo(cajero, "100.00")
     with pytest.raises(ReglaNegocioError):
-        pago.generar_ticket(cuenta)
+        GeneradorTicket().generar(cuenta.generar_resumen(), [pago])
 
 
 def test_crear_producto():

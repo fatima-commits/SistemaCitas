@@ -15,6 +15,7 @@ from Pago import PagoEfectivo, PagoTarjeta
 from Plantillas import PLANTILLAS
 from Repositorio import RepositorioMemoria
 from Terminal import TerminalSimulada
+from Ticket import GeneradorTicket
 
 def crear_app(repositorio=None, servicio_terminal=None):
     app = Flask(__name__)
@@ -253,8 +254,8 @@ def crear_app(repositorio=None, servicio_terminal=None):
         cuenta = repo.buscar_cuenta(folio)
         if cuenta.pago is None:
             raise ReglaNegocioError("La cuenta no tiene un pago registrado (RN-14).")
-        return render_template("ticket.html", cuenta=cuenta, texto=cuenta.pago.generar_ticket(cuenta))
-
+        texto = GeneradorTicket().generar(cuenta.generar_resumen(), [cuenta.pago])
+        return render_template("ticket.html", cuenta=cuenta, texto=texto)
 
     # ---------------------------------------------------------------- menú (RF-15)
     @app.route("/menu")

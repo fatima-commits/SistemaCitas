@@ -1,5 +1,6 @@
 """Clases DetalleOrden, Orden y Cuenta (Tarjetas CRC 3 y 4)."""
 import itertools
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
@@ -122,6 +123,18 @@ class Orden:
         """RF-09."""
         return sum((d.calcular_importe() for d in self._detalles), Decimal("0.00"))
 
+@dataclass(frozen=True)
+class ResumenCuenta:
+    """Datos de solo lectura de una cuenta que necesita el ticket (H-05)."""
+    folio: int
+    numero_mesa: int
+    nombre_mesero: str
+    numero_comensales: int
+    lineas: tuple  # cada línea: (cantidad, nombre del producto, importe)
+    subtotal: Decimal
+    iva: Decimal
+    consumo: Decimal
+    propina: Decimal
 
 class Cuenta:
     def __init__(self, folio, mesa, mesero, numero_comensales):
@@ -271,6 +284,22 @@ class Cuenta:
 
     def calcular_total_a_pagar(self):
         return redondear(self.calcular_consumo() + self._propina)
+
+    def generar_resumen(self):
+        """H-05: entrega los datos que el ticket necesita sin exponer Mesa, Orden ni Producto."""
+        lineas = tuple((d.cantidad, d.producto.nombre, d.calcular_importe())
+                       for orden in self._ordenes for d in orden.detalles)
+        return ResumenCuenta(
+            folio=self._folio,
+            numero_mesa=self._mesa.numero,
+            nombre_mesero=self._mesero.nombre,
+            numero_comensales=self._numero_comensales,
+            lineas=lineas,
+            subtotal=self.calcular_subtotal(),
+            iva=self.calcular_iva(),
+            consumo=self.calcular_consumo(),
+            propina=self._propina,
+        )
 
     # ---------- operaciones del cajero ----------
     def aplicar_propina(self, valor, es_porcentaje, cajero):

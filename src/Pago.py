@@ -62,39 +62,9 @@ class Pago(ABC):
         self._fecha_hora = datetime.now()
         cuenta.registrar_pago(self)
 
-    def _lineas_metodo(self):
-        """Hook: cada subclase agrega sus propias líneas al ticket."""
+    def datos_ticket(self):
+        """Datos propios del método de pago para el ticket, sin formato (H-05)."""
         return []
-
-    def generar_ticket(self, cuenta):
-        """RF-14, RN-14: solo si la cuenta tiene este pago registrado."""
-        if cuenta.pago is not self:
-            raise ReglaNegocioError("La cuenta no tiene un pago registrado (RN-14).")
-        # REFACTOR: el formato del ticket está armado a mano con strings.
-        # Separarlo en una clase GeneradorTicket (o una plantilla) para que Pago
-        # no tenga dos responsabilidades (cobrar y dar formato).
-        lineas = [
-            "CUENTAMESA",
-            f"Folio cuenta: {cuenta.folio}   Mesa: {cuenta.mesa.numero}",
-            f"Mesero: {cuenta.mesero.nombre}   Comensales: {cuenta.numero_comensales}",
-            f"Fecha: {self._fecha_hora:%d/%m/%Y %H:%M}",
-            "-" * 40,
-        ]
-        for orden in cuenta.ordenes:
-            for d in orden.detalles:
-                lineas.append(f"{d.cantidad:>3} x {d.producto.nombre[:22]:<22} {d.calcular_importe():>10.2f}")
-        lineas += [
-            "-" * 40,
-            f"{'Subtotal':<28}{cuenta.calcular_subtotal():>12.2f}",
-            f"{'IVA 16%':<28}{cuenta.calcular_iva():>12.2f}",
-            f"{'Consumo':<28}{cuenta.calcular_consumo():>12.2f}",
-            f"{'Propina':<28}{cuenta.propina:>12.2f}",
-            f"{'TOTAL':<28}{self._monto:>12.2f}",
-            f"Pago: {self._metodo.value}",
-        ]
-        lineas += self._lineas_metodo()
-        lineas.append("¡Gracias por su visita!")
-        return "\n".join(lineas)
 
 
 class PagoEfectivo(Pago):
@@ -124,11 +94,11 @@ class PagoEfectivo(Pago):
         self._folio_caja = f"CAJA-{self._id_pago:05d}"
         return True
 
-    def _lineas_metodo(self):
+    def datos_ticket(self):
         return [
-            f"{'Recibido':<28}{self._monto_recibido:>12.2f}",
-            f"{'Cambio':<28}{self._cambio:>12.2f}",
-            f"Folio caja: {self._folio_caja}",
+            ("Recibido", self._monto_recibido),
+            ("Cambio", self._cambio),
+            ("Folio caja", self._folio_caja),
         ]
 
 
@@ -172,5 +142,5 @@ class PagoTarjeta(Pago):
         self._registrar(cuenta, total)
         return True
 
-    def _lineas_metodo(self):
-        return [f"Referencia terminal: {self._referencia_terminal}"]
+    def datos_ticket(self):
+        return [("Referencia terminal", self._referencia_terminal)]
