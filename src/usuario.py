@@ -1,7 +1,7 @@
 """Clase Usuario (Tarjeta CRC 1). Mesero y cajero son la misma clase con distinto rol."""
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from enums import RolUsuario
+from Proyecto.SistemaCitas.src.enums import RolUsuario
 
 class Usuario:
     def __init__(self, id_usuario, nombre, nombre_usuario, contrasena, rol):
