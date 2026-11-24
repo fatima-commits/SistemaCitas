@@ -1,5 +1,6 @@
 """Clases DetalleOrden, Orden y Cuenta (Tarjetas CRC 3 y 4)."""
 import itertools
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -135,6 +136,41 @@ class ResumenCuenta:
     iva: Decimal
     consumo: Decimal
     propina: Decimal
+
+
+def _convertir_valor_propina(valor):
+    """RN-10: el valor de la propina debe ser un número finito y no negativo."""
+    try:
+        valor = Decimal(str(valor))
+    except InvalidOperation:
+        raise ReglaNegocioError("Valor de propina no válido.")
+    if not valor.is_finite() or valor < 0:
+        raise ReglaNegocioError("La propina no puede ser negativa (RN-10).")
+    return valor
+
+
+class AjusteCuenta(ABC):
+    """Estrategia (H-07): un ajuste que se suma al consumo de la cuenta."""
+
+    @abstractmethod
+    def calcular(self, consumo):
+        """Devuelve el monto del ajuste para el consumo indicado."""
+
+
+class PropinaPorcentaje(AjusteCuenta):
+    def __init__(self, porcentaje):
+        self._porcentaje = _convertir_valor_propina(porcentaje)
+
+    def calcular(self, consumo):
+        return consumo * self._porcentaje / 100
+
+
+class PropinaMontoFijo(AjusteCuenta):
+    def __init__(self, monto):
+        self._monto = _convertir_valor_propina(monto)
+
+    def calcular(self, consumo):
+        return self._monto
 
 class Cuenta:
     def __init__(self, folio, mesa, mesero, numero_comensales):
@@ -302,24 +338,12 @@ class Cuenta:
         )
 
     # ---------- operaciones del cajero ----------
-    def aplicar_propina(self, valor, es_porcentaje, cajero):
+    def aplicar_propina(self, ajuste, cajero):
         """RF-11, RN-10."""
-        # REFACTOR: el parámetro booleano es_porcentaje es un "flag argument".
-        # Cambiar por patrón Strategy: PropinaPorcentaje / PropinaMontoFijo,
-        # cada una con su método calcular(consumo).
         if not cajero.validar_rol(RolUsuario.CAJERO):
             raise ReglaNegocioError("Solo el cajero aplica la propina.")
         self._validar_estado(EstadoCuenta.POR_COBRAR)
-        try:
-            valor = Decimal(str(valor))
-        except InvalidOperation:
-            raise ReglaNegocioError("Valor de propina no válido.")
-        if not valor.is_finite() or valor < 0:
-            raise ReglaNegocioError("La propina no puede ser negativa (RN-10).")
-        if es_porcentaje:
-            self._propina = redondear(self.calcular_consumo() * valor / 100)
-        else:
-            self._propina = redondear(valor)
+        self._propina = redondear(ajuste.calcular(self.calcular_consumo()))
 
     def cancelar(self, motivo, cajero):
         """RF-13, RN-13, RN-04."""

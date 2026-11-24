@@ -9,6 +9,7 @@ from functools import wraps
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from jinja2 import DictLoader
 
+from Cuenta import PropinaMontoFijo, PropinaPorcentaje
 from Enums import EstadoCuenta, EstadoDetalleOrden
 from Errores import ReglaNegocioError
 from Pago import PagoEfectivo, PagoTarjeta
@@ -16,6 +17,10 @@ from Plantillas import PLANTILLAS
 from Repositorio import RepositorioMemoria
 from Terminal import TerminalSimulada
 from Ticket import GeneradorTicket
+
+# H-07: cada tipo del formulario se traduce a su estrategia de propina.
+TIPOS_PROPINA = {"porcentaje": PropinaPorcentaje, "fijo": PropinaMontoFijo}
+
 
 def crear_app(repositorio=None, servicio_terminal=None):
     app = Flask(__name__)
@@ -202,8 +207,9 @@ def crear_app(repositorio=None, servicio_terminal=None):
     @login_requerido
     def aplicar_propina(folio):
         """RF-11."""
-        es_porcentaje = request.form.get("tipo") == "porcentaje"
-        repo.buscar_cuenta(folio).aplicar_propina(request.form.get("valor", ""), es_porcentaje, usuario_actual())
+        tipo_propina = TIPOS_PROPINA.get(request.form.get("tipo"), PropinaMontoFijo)
+        ajuste = tipo_propina(request.form.get("valor", ""))
+        repo.buscar_cuenta(folio).aplicar_propina(ajuste, usuario_actual())
         return redirect(url_for("caja_cuenta", folio=folio))
 
 

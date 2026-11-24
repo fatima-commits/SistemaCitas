@@ -1,6 +1,7 @@
 from decimal import Decimal
 import pytest
 
+from Cuenta import PropinaMontoFijo, PropinaPorcentaje
 from Enums import EstadoCuenta, EstadoMesa
 from Errores import ReglaNegocioError
 from Pago import PagoEfectivo, PagoTarjeta
@@ -108,7 +109,7 @@ def test_aplicar_propina():
     cuenta.agregar_producto(1, repo.buscar_producto(3), 2, "", mesero)
     cuenta.agregar_producto(1, repo.buscar_producto(6), 1, "", mesero)
     cuenta.solicitar_cuenta(mesero)
-    cuenta.aplicar_propina("10", True, cajero)
+    cuenta.aplicar_propina(PropinaPorcentaje("10"), cajero)
     assert cuenta.propina == Decimal("28.00")
     assert cuenta.calcular_total_a_pagar() == Decimal("308.00")
 
@@ -122,7 +123,7 @@ def test_aplicar_propina_negativa():
     cuenta.agregar_producto(1, repo.buscar_producto(1), 1, "", mesero)
     cuenta.solicitar_cuenta(mesero)
     with pytest.raises(ReglaNegocioError):
-        cuenta.aplicar_propina("-15", False, cajero)
+        cuenta.aplicar_propina(PropinaMontoFijo("-15"), cajero)
 
 
 def test_cobrar_cuenta():
