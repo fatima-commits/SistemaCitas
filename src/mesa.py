@@ -1,6 +1,6 @@
 """Clase Mesa (Tarjeta CRC 2)."""
-from Proyecto.SistemaCitas.src.enums import EstadoMesa
-from Proyecto.SistemaCitas.src.errores import ReglaNegocioError
+from Enums import EstadoMesa
+from Errores import ReglaNegocioError
 
 
 class Mesa:

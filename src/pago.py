@@ -7,8 +7,9 @@ from concurrent.futures import TimeoutError as TiempoAgotado
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from Proyecto.SistemaCitas.src.enums import EstadoCuenta, MetodoPago, RolUsuario
-from Proyecto.SistemaCitas.src.errores import ReglaNegocioError
+from Enums import EstadoCuenta, MetodoPago, RolUsuario
+from Errores import ReglaNegocioError
+from Terminal import ResultadoCargo
 
 
 # REFACTOR: función DUPLICADA de cuenta.py. Unificar en un solo módulo.
@@ -151,26 +152,23 @@ class PagoTarjeta(Pago):
         self._validar_cuenta_por_cobrar(cuenta)
         total = cuenta.calcular_total_a_pagar()
 
-        # REFACTOR: se crea un pool de hilos en cada cobro. Se podría compartir
-        # uno para toda la app, o mover el manejo del tiempo límite a un
-        # decorador/clase que envuelva a la terminal.
         inicio = time.monotonic()
         pool = ThreadPoolExecutor(max_workers=1)
         futuro = pool.submit(self._terminal.enviar_cargo, total)
         try:
-            aprobado = futuro.result(timeout=self.LIMITE_SEGUNDOS)
+            resultado = futuro.result(timeout=self.LIMITE_SEGUNDOS)
         except TiempoAgotado:
-            aprobado = False
-        except Exception:  # la terminal falló (red, etc.): se trata como rechazo
-            aprobado = False
+            resultado = ResultadoCargo(aprobado=False)
+        except Exception:  # la terminal falló y se trata como rechazo
+            resultado = ResultadoCargo(aprobado=False)
         finally:
             pool.shutdown(wait=False)
         self._tiempo_respuesta_seg = round(time.monotonic() - inicio)
 
-        self._aprobado = aprobado and self.verificar_tiempo_limite()
+        self._aprobado = resultado.aprobado and self.verificar_tiempo_limite()
         if not self._aprobado:
-            return False  # rechazada o sin respuesta: la cuenta sigue por cobrar
-        self._referencia_terminal = self._terminal.obtener_referencia()
+            return False  # rechazada o sin respuesta
+        self._referencia_terminal = resultado.referencia
         self._registrar(cuenta, total)
         return True
 

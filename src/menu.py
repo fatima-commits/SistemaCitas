@@ -1,7 +1,7 @@
 """Clases Categoria y Producto. El "Menú" es el conjunto de productos (Sección 8)."""
 from decimal import Decimal, InvalidOperation
 
-from Proyecto.SistemaCitas.src.errores import ReglaNegocioError
+from Errores import ReglaNegocioError
 
 
 class Categoria:

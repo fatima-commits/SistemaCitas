@@ -2,22 +2,75 @@
 
 Usuarios de prueba (contraseña 1234): mesero1, mesero2, cajero1.
 """
+from abc import ABC, abstractmethod
 import itertools
 
-from Proyecto.SistemaCitas.src.cuenta import Cuenta
-from Proyecto.SistemaCitas.src.enums import EstadoCuenta, RolUsuario
-from Proyecto.SistemaCitas.src.errores import ReglaNegocioError
-from Proyecto.SistemaCitas.src.mesa import Mesa
-from Proyecto.SistemaCitas.src.menu import Categoria, Producto
-from Proyecto.SistemaCitas.src.usuario import Usuario
+from Cuenta import Cuenta
+from Enums import EstadoCuenta, RolUsuario
+from Errores import ReglaNegocioError
+from Mesa import Mesa
+from Menu import Categoria, Producto
+from Usuario import Usuario
 
+class Repositorio(ABC):
+    #Abstracción de persistencia
+    @abstractmethod
+    def buscar_usuario_por_nombre(self, nombre_usuario):
+        pass
 
-# REFACTOR: todo vive en memoria; al reiniciar el servidor se pierde todo.
-# DEP-02 pide un servidor con base de datos. Definir una interfaz Repositorio
-# y crear una implementación con SQLite/SQLAlchemy sin tocar el resto del código.
-# REFACTOR: no es seguro con varios hilos a la vez (RNF-01: 20 dispositivos).
-# Agregar un threading.Lock o usar la base de datos.
-class RepositorioMemoria:
+    @abstractmethod
+    def buscar_usuario(self, id_usuario):
+        pass
+
+    @abstractmethod
+    def listar_mesas(self):
+        pass
+
+    @abstractmethod
+    def buscar_mesa(self, numero):
+        pass
+
+    @abstractmethod
+    def abrir_cuenta(self, numero_mesa, mesero, numero_comensales):
+        pass
+
+    @abstractmethod
+    def buscar_cuenta(self, folio):
+        pass
+
+    @abstractmethod
+    def cuenta_activa_de_mesa(self, numero_mesa):
+        pass
+
+    @abstractmethod
+    def cuentas_de_mesero(self, mesero):
+        pass
+
+    @abstractmethod
+    def cuentas_activas(self):
+        pass
+
+    @abstractmethod
+    def cuentas_cerradas(self):
+        pass
+
+    @abstractmethod
+    def listar_categorias(self):
+        pass
+
+    @abstractmethod
+    def buscar_categoria(self, id_categoria):
+        pass
+
+    @abstractmethod
+    def buscar_producto(self, id_producto):
+        pass
+
+    @abstractmethod
+    def crear_producto(self, nombre, precio, id_categoria, disponible=True):
+        pass
+
+class RepositorioMemoria(Repositorio):
     def __init__(self):
         self._usuarios = {}
         self._mesas = {}
