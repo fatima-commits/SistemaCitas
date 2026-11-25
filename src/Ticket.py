@@ -22,7 +22,7 @@ class GeneradorTicket:
         lineas += [
             "-" * 40,
             f"{'Subtotal':<28}{resumen.subtotal:>12.2f}",
-            f"{'IVA 16%':<28}{resumen.iva:>12.2f}",
+            f"{f'IVA {TASA_IVA * 100:.0f}%':<28}{resumen.iva:>12.2f}",
             f"{'Consumo':<28}{resumen.consumo:>12.2f}",
             f"{'Propina':<28}{resumen.propina:>12.2f}",
             f"{'TOTAL':<28}{total:>12.2f}",

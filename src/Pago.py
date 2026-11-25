@@ -71,9 +71,12 @@ class PagoEfectivo(Pago):
     def __init__(self, cajero, monto_recibido):
         super().__init__(cajero, MetodoPago.EFECTIVO)
         try:
-            self._monto_recibido = redondear(Decimal(str(monto_recibido)))
+            monto = Decimal(str(monto_recibido))
         except InvalidOperation:
+            raise ReglaNegocioError("Monto recibido no válido.") from None
+        if not monto.is_finite() or monto < 0:
             raise ReglaNegocioError("Monto recibido no válido.")
+        self._monto_recibido = redondear(monto)
         self._cambio = Decimal("0.00")
         self._folio_caja = ""
 

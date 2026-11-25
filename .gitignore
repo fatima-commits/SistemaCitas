@@ -1,3 +1,8 @@
 /venv
-repomix-output.xml
 /.venv
+repomix-output.xml
+__pycache__/
+*.pyc
+.pytest_cache/
+ruff-report.json
+.coverage
