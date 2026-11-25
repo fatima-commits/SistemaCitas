@@ -7,17 +7,10 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from Enums import EstadoCuenta, EstadoDetalleOrden, RolUsuario
 from Errores import ReglaNegocioError
+from Dinero import redondear
 
 # REFACTOR: número mágico. El 16 % de IVA (RN-09) debería venir de configuración.
 TASA_IVA = Decimal("0.16")
-
-
-# REFACTOR: esta función está DUPLICADA en pago.py. Moverla a un módulo
-# dinero.py (o crear una clase Dinero) y usarla en ambos lados.
-def redondear(valor):
-    """RNF-04: todos los montos a 2 decimales."""
-    return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
 
 # REFACTOR: ids generados con contadores globales. Deberían asignarlos el
 # repositorio o la base de datos.

@@ -10,12 +10,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from Enums import EstadoCuenta, MetodoPago, RolUsuario
 from Errores import ReglaNegocioError
 from Terminal import ResultadoCargo
-
-
-# REFACTOR: función DUPLICADA de cuenta.py. Unificar en un solo módulo.
-def redondear(valor):
-    return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
+from Dinero import redondear
 
 # REFACTOR: contador global; debería asignarlo el repositorio/BD.
 _ids_pago = itertools.count(1)
