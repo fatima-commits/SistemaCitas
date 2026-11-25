@@ -10,12 +10,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from Enums import EstadoCuenta, MetodoPago, RolUsuario
 from Errores import ReglaNegocioError
 from Terminal import ResultadoCargo
-
-
-# REFACTOR: función DUPLICADA de cuenta.py. Unificar en un solo módulo.
-def redondear(valor):
-    return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
+from Dinero import redondear
 
 # REFACTOR: contador global; debería asignarlo el repositorio/BD.
 _ids_pago = itertools.count(1)
@@ -71,9 +66,12 @@ class PagoEfectivo(Pago):
     def __init__(self, cajero, monto_recibido):
         super().__init__(cajero, MetodoPago.EFECTIVO)
         try:
-            self._monto_recibido = redondear(Decimal(str(monto_recibido)))
+            monto = Decimal(str(monto_recibido))
         except InvalidOperation:
+            raise ReglaNegocioError("Monto recibido no válido.") from None
+        if not monto.is_finite() or monto < 0:
             raise ReglaNegocioError("Monto recibido no válido.")
+        self._monto_recibido = redondear(monto)
         self._cambio = Decimal("0.00")
         self._folio_caja = ""
 

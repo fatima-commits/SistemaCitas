@@ -5,6 +5,8 @@ Abrir:     http://localhost:5000
 """
 from datetime import timedelta
 from functools import wraps
+import os
+from urllib.parse import urlparse
 
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from jinja2 import DictLoader
@@ -25,13 +27,13 @@ TIPOS_PROPINA = {"porcentaje": PropinaPorcentaje, "fijo": PropinaMontoFijo}
 def crear_app(repositorio=None, servicio_terminal=None):
     app = Flask(__name__)
 
-    app.secret_key = "cambia-esta-clave"
+    app.secret_key = os.environ.get("CUENTAMESA_SECRET_KEY", "solo-desarrollo")
     app.permanent_session_lifetime = timedelta(minutes=15)  # RNF-02: 15 min sin actividad
     app.jinja_loader = DictLoader(PLANTILLAS)
 
-    repo = RepositorioMemoria()
+    repo = repositorio if repositorio is not None else RepositorioMemoria()
     terminal = servicio_terminal if servicio_terminal is not None else TerminalSimulada()
-
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
 
     # Utilidades
     @app.template_filter("dinero")
@@ -63,7 +65,11 @@ def crear_app(repositorio=None, servicio_terminal=None):
     def manejar_regla_negocio(error):
         """Cualquier RN violada se muestra como mensaje y regresa a la página anterior."""
         flash(str(error), "error")
-        return redirect(request.referrer or url_for("inicio"))
+
+        destino = request.referrer
+        if not destino or urlparse(destino).netloc != request.host:
+            destino = url_for("inicio")
+        return redirect(destino)
 
 
     # REFACTOR: leer números del formulario se repite en muchas rutas con el
@@ -207,7 +213,9 @@ def crear_app(repositorio=None, servicio_terminal=None):
     @login_requerido
     def aplicar_propina(folio):
         """RF-11."""
-        tipo_propina = TIPOS_PROPINA.get(request.form.get("tipo"), PropinaMontoFijo)
+        tipo_propina = TIPOS_PROPINA.get(request.form.get("tipo"))
+        if tipo_propina is None:
+            raise ReglaNegocioError("Tipo de propina no válido.")
         ajuste = tipo_propina(request.form.get("valor", ""))
         repo.buscar_cuenta(folio).aplicar_propina(ajuste, usuario_actual())
         return redirect(url_for("caja_cuenta", folio=folio))
