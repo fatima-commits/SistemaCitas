@@ -5,12 +5,12 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as TiempoAgotado
 from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation
 
+from Dinero import redondear
 from Enums import EstadoCuenta, MetodoPago, RolUsuario
 from Errores import ReglaNegocioError
 from Terminal import ResultadoCargo
-from Dinero import redondear
 
 # REFACTOR: contador global; debería asignarlo el repositorio/BD.
 _ids_pago = itertools.count(1)

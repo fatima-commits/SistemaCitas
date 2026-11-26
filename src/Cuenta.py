@@ -3,11 +3,11 @@ import itertools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation
 
+from Dinero import redondear
 from Enums import EstadoCuenta, EstadoDetalleOrden, RolUsuario
 from Errores import ReglaNegocioError
-from Dinero import redondear
 
 # REFACTOR: número mágico. El 16 % de IVA (RN-09) debería venir de configuración.
 TASA_IVA = Decimal("0.16")

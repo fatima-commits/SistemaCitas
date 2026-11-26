@@ -1,10 +1,11 @@
 """Interfaz ServicioTerminalPago (inversión de dependencia hacia el sistema externo)
 y una terminal simulada para poder probar sin banco."""
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 import random
 import time
 import uuid
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class ResultadoCargo:

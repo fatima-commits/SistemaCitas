@@ -3,12 +3,21 @@
 Ejecutar:  pip install flask   y luego   python app.py
 Abrir:     http://localhost:5000
 """
+import os
 from datetime import timedelta
 from functools import wraps
-import os
 from urllib.parse import urlparse
 
-from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Flask,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from jinja2 import DictLoader
 
 from Cuenta import PropinaMontoFijo, PropinaPorcentaje
