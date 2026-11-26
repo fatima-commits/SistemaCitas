@@ -42,7 +42,6 @@ def crear_app(repositorio=None, servicio_terminal=None):
 
     repo = repositorio if repositorio is not None else RepositorioMemoria()
     terminal = servicio_terminal if servicio_terminal is not None else TerminalSimulada()
-    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
 
     # Utilidades
     @app.template_filter("dinero")
@@ -316,4 +315,4 @@ def crear_app(repositorio=None, servicio_terminal=None):
 app = crear_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")

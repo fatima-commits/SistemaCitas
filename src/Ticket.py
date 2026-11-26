@@ -2,7 +2,7 @@
 from decimal import Decimal
 
 from Errores import ReglaNegocioError
-
+from Cuenta import TASA_IVA
 
 class GeneradorTicket:
     def generar(self, resumen, pagos):

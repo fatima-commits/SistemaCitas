@@ -8,3 +8,4 @@ ruff-report.json
 .coverage
 .scannerwork/
 .ruff_cache/
+coverage.xml
