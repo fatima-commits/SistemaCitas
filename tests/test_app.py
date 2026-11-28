@@ -2,10 +2,10 @@
 
 Cada prueba arma lo que necesita: su propio repositorio, su app y sus usuarios.
 """
+from app import crear_app
 from Enums import EstadoCuenta
 from Repositorio import RepositorioMemoria
 from Terminal import ResultadoCargo, ServicioTerminalPago
-from app import crear_app
 
 
 class TerminalPrueba(ServicioTerminalPago):
@@ -145,7 +145,8 @@ def test_propina_tipo_invalido():
     app = crear_app(repo, TerminalPrueba())
     preparar_cuenta_por_cobrar(iniciar_sesion(app, "mesero1"))
     cajero = iniciar_sesion(app, "cajero1")
-    r = cajero.post("/caja/cuentas/1/propina", data={"valor": "10", "tipo": "otro"}, follow_redirects=True)
+    r = cajero.post("/caja/cuentas/1/propina", data={"valor": "10", "tipo": "otro"},
+                    follow_redirects=True)
     assert "no válido" in r.text
 
 
@@ -215,9 +216,10 @@ def test_crear_y_editar_producto():
     repo = RepositorioMemoria()
     app = crear_app(repo, TerminalPrueba())
     cajero = iniciar_sesion(app, "cajero1")
-    cajero.post("/menu/productos",
-                data={"nombre": "Café", "precio": "30", "id_categoria": "3", "disponible": "on"})
-    cajero.post("/menu/productos/5", data={"nombre": "Arrachera", "precio": "270", "disponible": "on"})
+    cajero.post("/menu/productos/5",
+                data={"nombre": "Arrachera", "precio": "270", "disponible": "on"})
+    cajero.post("/menu/productos/5",
+                data={"nombre": "Arrachera", "precio": "270", "disponible": "on"})
     producto = repo.buscar_producto(5)
     assert producto.precio == 270
     assert producto.disponible

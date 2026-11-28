@@ -1,8 +1,9 @@
 """GeneradorTicket (H-05): da formato al ticket de una cuenta pagada (RF-14, RN-14)."""
 from decimal import Decimal
 
-from Errores import ReglaNegocioError
 from Cuenta import TASA_IVA
+from Errores import ReglaNegocioError
+
 
 class GeneradorTicket:
     def generar(self, resumen, pagos):

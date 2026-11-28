@@ -71,7 +71,7 @@ class DetalleOrden:
         try:
             self._estado = EstadoDetalleOrden(estado)
         except ValueError:
-            raise ReglaNegocioError("Estado no permitido (RN-08).")
+            raise ReglaNegocioError("Estado no permitido (RN-08).") from None
 
 
 class Orden:
@@ -136,7 +136,7 @@ def _convertir_valor_propina(valor):
     try:
         valor = Decimal(str(valor))
     except InvalidOperation:
-        raise ReglaNegocioError("Valor de propina no válido.")
+        raise ReglaNegocioError("Valor de propina no válido.") from None
     if not valor.is_finite() or valor < 0:
         raise ReglaNegocioError("La propina no puede ser negativa (RN-10).")
     return valor
@@ -240,7 +240,8 @@ class Cuenta:
         """RF-04, RN-05."""
         self._validar_duenio(mesero)
         self._validar_estado(EstadoCuenta.ABIERTA)
-        if not isinstance(numero_comensales, int) or not 1 <= numero_comensales <= self._mesa.capacidad:
+        capacidad = self._mesa.capacidad
+        if not isinstance(numero_comensales, int) or not 1 <= numero_comensales <= capacidad:
             raise ReglaNegocioError(
                 f"Los comensales deben estar entre 1 y {self._mesa.capacidad} (RN-05)."
             )

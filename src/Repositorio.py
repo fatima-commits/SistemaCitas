@@ -12,7 +12,8 @@ from Menu import Categoria, Producto
 from Mesa import Mesa
 from Usuario import Usuario
 
-
+ESTADOS_ACTIVOS = (EstadoCuenta.ABIERTA, EstadoCuenta.POR_COBRAR)
+ESTADOS_CERRADOS = (EstadoCuenta.PAGADA, EstadoCuenta.CANCELADA)
 class Repositorio(ABC):
     #Abstracción de persistencia
     @abstractmethod
@@ -138,7 +139,8 @@ class RepositorioMemoria(Repositorio):
         # REFACTOR: el folio se consume aunque la Cuenta falle al crearse
         # (p. ej. comensales inválidos), así que quedan huecos en los folios.
         # Validar antes o tomar el folio solo si la creación tuvo éxito.
-        cuenta = Cuenta(next(self._folios), self.buscar_mesa(numero_mesa), mesero, numero_comensales)
+        mesa = self.buscar_mesa(numero_mesa)
+        cuenta = Cuenta(next(self._folios), mesa, mesero, numero_comensales)
         self._cuentas[cuenta.folio] = cuenta
         return cuenta
 
@@ -150,7 +152,7 @@ class RepositorioMemoria(Repositorio):
 
     def cuenta_activa_de_mesa(self, numero_mesa):
         for c in self._cuentas.values():
-            if c.mesa.numero == numero_mesa and c.estado in (EstadoCuenta.ABIERTA, EstadoCuenta.POR_COBRAR):
+            if c.mesa.numero == numero_mesa and c.estado in ESTADOS_ACTIVOS:
                 return c
         return None
 
@@ -164,10 +166,10 @@ class RepositorioMemoria(Repositorio):
         ]
 
     def cuentas_activas(self):
-        return [c for c in self._cuentas.values() if c.estado in (EstadoCuenta.ABIERTA, EstadoCuenta.POR_COBRAR)]
+        return [c for c in self._cuentas.values() if c.estado in ESTADOS_ACTIVOS]
 
     def cuentas_cerradas(self):
-        return [c for c in self._cuentas.values() if c.estado in (EstadoCuenta.PAGADA, EstadoCuenta.CANCELADA)]
+        return [c for c in self._cuentas.values() if c.estado in ESTADOS_CERRADOS]
 
     # ---------- menú ----------
     def listar_categorias(self):

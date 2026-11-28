@@ -86,7 +86,7 @@ def crear_app(repositorio=None, servicio_terminal=None):
         try:
             return int(request.form.get(campo, ""))
         except ValueError:
-            raise ReglaNegocioError(f"El campo '{campo}' debe ser un número entero.")
+            raise ReglaNegocioError(f"El campo '{campo}' debe ser un número entero.") from None
 
 
     # ---------------------------------------------------------------- sesión (RF-01)
@@ -144,8 +144,8 @@ def crear_app(repositorio=None, servicio_terminal=None):
         # REFACTOR: esta misma comprobación ya existe dentro de Cuenta (_validar_duenio).
         if not usuario.es_mesero() or cuenta.mesero.id_usuario != usuario.id_usuario:
             abort(403)
-        return render_template("cuenta_mesero.html", cuenta=cuenta, categorias=repo.listar_categorias())
-
+        return render_template(
+            "cuenta_mesero.html", cuenta=cuenta, categorias=repo.listar_categorias())
 
     @app.route("/cuentas/<int:folio>/comensales", methods=["POST"])
     @login_requerido
@@ -206,8 +206,8 @@ def crear_app(repositorio=None, servicio_terminal=None):
     def caja():
         if not usuario_actual().es_cajero():  # REFACTOR: chequeo de rol repetido
             abort(403)
-        return render_template("caja.html", activas=repo.cuentas_activas(), cerradas=repo.cuentas_cerradas())
-
+        return render_template("caja.html", activas=repo.cuentas_activas(),
+                               cerradas=repo.cuentas_cerradas())
 
     @app.route("/caja/cuentas/<int:folio>")
     @login_requerido

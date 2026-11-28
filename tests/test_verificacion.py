@@ -1,4 +1,5 @@
 from decimal import Decimal
+
 import pytest
 
 from Cuenta import PropinaMontoFijo, PropinaPorcentaje
@@ -8,6 +9,7 @@ from Pago import PagoEfectivo, PagoTarjeta
 from Repositorio import RepositorioMemoria
 from Terminal import ResultadoCargo, ServicioTerminalPago
 from Ticket import GeneradorTicket
+
 
 class TerminalPrueba(ServicioTerminalPago):
     def __init__(self, aprobar=True):

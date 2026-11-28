@@ -81,7 +81,7 @@ class Producto:
         try:
             precio = Decimal(str(precio))
         except InvalidOperation:
-            raise ReglaNegocioError("El precio no es válido (RN-15).")
+            raise ReglaNegocioError("El precio no es válido (RN-15).") from None
         if not precio.is_finite() or precio <= 0:
             raise ReglaNegocioError("El precio debe ser mayor que cero (RN-15).")
         self._nombre = nombre

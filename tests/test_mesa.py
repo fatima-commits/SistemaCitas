@@ -3,8 +3,13 @@ import pytest
 
 from Enums import EstadoMesa
 from Errores import ReglaNegocioError
-from Mesa import (CAPACIDAD_MESA_MAXIMA, CAPACIDAD_MESA_MINIMA, NUMERO_MESA_MAXIMO,
-                  NUMERO_MESA_MINIMO, Mesa)
+from Mesa import (
+    CAPACIDAD_MESA_MAXIMA,
+    CAPACIDAD_MESA_MINIMA,
+    NUMERO_MESA_MAXIMO,
+    NUMERO_MESA_MINIMO,
+    Mesa,
+)
 
 
 def test_limites_validos():
